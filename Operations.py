@@ -3,10 +3,11 @@ import paho.mqtt.client as mqtt
 import json
 import time
 import hashlib
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from cryptography.hazmat.backends import default_backend
 from concurrent.futures import ThreadPoolExecutor
 import base64
 
@@ -49,8 +50,30 @@ def calculate_position(devices):
     
     return (x, y)
     
-def encrypt_data(public_key, data):
-    print("Encrypting data...")
+def stretch_key(public_key_pem, password):
+    # Generate a random salt
+    salt = os.urandom(16)
+
+    # Stretch the key
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    stretched_key = kdf.derive(password.encode())
+
+    # Load the key
+    public_key = load_pem_public_key(stretched_key)
+    
+    return public_key, salt
+
+def encrypt_data(public_key_pem, password, data):
+    # Stretch the key
+    public_key, salt = stretch_key(public_key_pem, password)
+
+    # Encrypt the data
     encrypted = public_key.encrypt(
         data.encode(),
         padding.OAEP(
@@ -59,8 +82,8 @@ def encrypt_data(public_key, data):
             label=None
         )
     )
-    print("Data encrypted.")
-    return base64.b64encode(encrypted).decode()
+
+    return base64.b64encode(encrypted).decode(), base64.b64encode(salt).decode()
 
 def on_connect(client, userdata, flags, rc):
     print(f"Connected with result code {rc}")
