@@ -77,7 +77,7 @@ public:
     mqtt_handler(const string& id, const string& _topic, const string& host, int port);
     virtual void on_connect(int rc);
     virtual void on_message(const struct mosquitto_message *message);
-    virtual void on_subcribe(int mid, int qos_count, const int *granted_qos);
+    virtual void on_subscribe(int mid, int qos_count, const int *granted_qos);
 
 private:
     string topic;
@@ -85,9 +85,9 @@ private:
 
 mqtt_handler::mqtt_handler(const string& _id, const string& _topic, const string& host, int port)
     : mosquittopp(_id.c_str()), topic(_topic) {
-        int keepalive = 60;
-        connect(host.c_str(), port, keepalive);
-    };
+    int keepalive = 60;
+    connect(host.c_str(), port, keepalive);
+}
 
 void mqtt_handler::on_connect(int rc) {
     if (!rc) {
@@ -103,11 +103,17 @@ void mqtt_handler::on_subscribe(int mid, int qos_count, const int *granted_qos) 
     cout << "Subscription succeeded." << endl;
 }
 
+void LoadPublicKey(const string& filename, RSA::PublicKey& publicKey) {
+    ByteQueue bytes;
+    Load(filename.c_str(), bytes, true);
+    publicKey.Load(bytes);
+}
+
 int main(int argc, char **argv) {
     string public_key_path = "public_key.pem";
     RSA::PublicKey public_key;
 
-    PEM_Load(public_key_path.c_str(), public_key);
+    LoadPublicKey(public_key_path, public_key);
     FileSink fs("key.der", true /*binary*/);
     public_key.DEREncode(fs);
     fs.MessageEnd();
