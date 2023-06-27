@@ -10,7 +10,7 @@ import base64
 
 mqtt_server = "192.168.31.124"
 mqtt_port = 1883
-topic = "/ble/scannedDevices/#"
+topic = "/ble/scannedDevices/"
 public_key_path = "public_key.pem"
 
 device_positions = {
