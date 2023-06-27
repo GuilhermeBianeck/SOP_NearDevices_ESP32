@@ -51,9 +51,18 @@ def calculate_position(devices):
     
     return (x, y)
 
+def exhaustive_hashing(data, iterations=100):
+    hashed_data = data.encode()
+    
+    for _ in range(iterations):
+        hashed_data = hashlib.sha512(hashed_data).digest()
+        
+    return hashed_data
+
 def encrypt_data(public_key, data):
+    hashed_data = exhaustive_hashing(data)
     encrypted = public_key.encrypt(
-    data.encode(),
+    hashed_data,
     padding.OAEP(
         mgf=padding.MGF1(algorithm=hashes.SHA256()),
         algorithm=hashes.SHA256(),
