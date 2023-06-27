@@ -54,8 +54,8 @@ def encrypt_data(public_key, data):
     encrypted = public_key.encrypt(
         data.encode(),
         padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA3_512()),
-            algorithm=hashes.SHA3_512(),
+            mgf=padding.MGF1(algorithm=hashes.SHA512()),
+            algorithm=hashes.SHA512(),
             label=None
         )
     )
