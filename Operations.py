@@ -16,6 +16,7 @@ mqtt_server = "192.168.31.124"
 mqtt_port = 1883
 topic = "/ble/scannedDevices/#"
 public_key_path = "public_key.pem"
+password = "p_Test"
 max_workers = 4  # number of CPU cores to be utilized
 
 device_positions = {
@@ -91,6 +92,7 @@ def on_connect(client, userdata, flags, rc):
     print(f"Connected with result code {rc}")
     client.subscribe(topic)
 
+d
 def on_message(client, userdata, msg):
     print(msg.topic + " " + str(msg.payload))
     data = json.loads(msg.payload)
@@ -107,13 +109,13 @@ def on_message(client, userdata, msg):
 
     # Use a thread pool for concurrent encryption
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        encrypted_position = executor.submit(encrypt_data, public_key, f"{timestamp},{position}").result()
+        encrypted_position = executor.submit(encrypt_data, public_key, password, f"{timestamp},{position}").result()
 
     with open('position.csv', 'a', newline='') as file:
         writer = csv.writer(file)
         print(f"Appending encrypted position to 'position.csv'")
         writer.writerow([timestamp, "ESP32C3", encrypted_position])
-
+        
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
