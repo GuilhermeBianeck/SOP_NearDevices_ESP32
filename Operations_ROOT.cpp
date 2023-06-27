@@ -14,7 +14,7 @@
 #include "cryptopp/filters.h"
 #include "cryptopp/files.h"
 #include "cryptopp/sha.h"
-#include "csv2/csv.hpp"
+#include "csv2/single_include/csv2.hpp"
 
 using namespace std;
 using namespace CryptoPP;
