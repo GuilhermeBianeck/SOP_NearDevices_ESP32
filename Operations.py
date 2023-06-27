@@ -1,7 +1,6 @@
 import csv
 import paho.mqtt.client as mqtt
 import json
-import os
 import time
 import hashlib
 from cryptography.hazmat.primitives import hashes
@@ -17,7 +16,6 @@ mqtt_server = "192.168.31.124"
 mqtt_port = 1883
 topic = "/ble/scannedDevices/#"
 public_key_path = "public_key.pem"
-password = "p_Test"
 max_workers = 4  # number of CPU cores to be utilized
 
 device_positions = {
@@ -53,31 +51,8 @@ def calculate_position(devices):
     
     return (x, y)
     
-def stretch_key(public_key_pem, password):
-    # Generate a random salt
-    salt = os.urandom(16)
-
-    # Stretch the key
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100000,
-        backend=default_backend()
-    )
-    stretched_key = kdf.derive(password.encode())
-
-    # Load the key
-    public_key = load_pem_public_key(stretched_key)
-    
-    return public_key, salt
-
-
-def encrypt_data(public_key_pem, password, data):
-    # Stretch the key
-    public_key, salt = stretch_key(public_key_pem, password)
-
-    # Encrypt the data
+def encrypt_data(public_key_pem, data):
+    public_key = serialization.load_pem_public_key(public_key_pem)
     encrypted = public_key.encrypt(
         data.encode(),
         padding.OAEP(
@@ -86,8 +61,7 @@ def encrypt_data(public_key_pem, password, data):
             label=None
         )
     )
-
-    return base64.b64encode(encrypted).decode(), base64.b64encode(salt).decode()
+    return base64.b64encode(encrypted).decode()
 
 def on_connect(client, userdata, flags, rc):
     print(f"Connected with result code {rc}")
@@ -109,7 +83,7 @@ def on_message(client, userdata, msg):
 
     # Use a thread pool for concurrent encryption
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        encrypted_position = executor.submit(encrypt_data, public_key, password, f"{timestamp},{position}").result()
+        encrypted_position = executor.submit(encrypt_data, public_key, f"{timestamp},{position}").result()
 
     with open('position.csv', 'a', newline='') as file:
         writer = csv.writer(file)
