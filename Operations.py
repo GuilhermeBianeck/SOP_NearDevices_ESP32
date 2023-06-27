@@ -2,7 +2,6 @@ import csv
 import paho.mqtt.client as mqtt
 import json
 import time
-import hashlib
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
@@ -50,16 +49,19 @@ def calculate_position(devices):
 
 def encrypt_data(public_key, data):
     print("Encrypting data...")
-    encrypted = public_key.encrypt(
-        data.encode(),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA3_512()),
-            algorithm=hashes.SHA3_512(),
-            label=None
-        )
-    )
+    aes_key = hashlib.sha256(data.encode()).digest()[:32]  # Use SHA-256 to derive a 256-bit AES key
+    
+    # Create a cipher using AES-256 in CBC mode
+    cipher = Cipher(algorithms.AES(aes_key), modes.CBC())
+    encryptor = cipher.encryptor()
+
+    padder = padding.PKCS7(128).padder()
+    padded_data = padder.update(data.encode()) + padder.finalize()
+
+    encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
+
     print("Data encrypted.")
-    return base64.b64encode(encrypted).decode()
+    return base64.b64encode(encrypted_data).decode()
 
 def on_connect(client, userdata, flags, rc):
     print(f"Connected with result code {rc}")
