@@ -50,9 +50,9 @@ def calculate_position(devices):
     print(f"Position calculated: {x, y}")
     
     return (x, y)
-    
-  def encrypt_data(public_key, data):
-    encrypted = public_key.encrypt(
+
+    def encrypt_data(public_key, data):
+        encrypted = public_key.encrypt(
         data.encode(),
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
