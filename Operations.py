@@ -60,7 +60,7 @@ def encrypt_data(public_key, data):
         )
     )
     print("Data encrypted.")
-    return base64.b64encode(encrypted_data).decode()
+    return base64.b64encode(encrypted).decode()
 
 def on_connect(client, userdata, flags, rc):
     print(f"Connected with result code {rc}")
