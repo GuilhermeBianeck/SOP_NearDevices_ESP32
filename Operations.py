@@ -51,11 +51,12 @@ def calculate_position(devices):
     
     return (x, y)
     
-def encrypt_data(public_key_pem, data):
-    public_key = serialization.load_pem_public_key(public_key_pem)
+  def encrypt_data(public_key, data):
     encrypted = public_key.encrypt(
         data.encode(),
         padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
             label=None
         )
     )
