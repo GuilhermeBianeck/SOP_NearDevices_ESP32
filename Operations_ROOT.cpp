@@ -4,8 +4,9 @@
 #include <vector>
 #include <map>
 #include <cmath>
+#include <mosquittopp.h>
+#include <thread>
 
-#include "async_client.h"
 #include "json.hpp"
 #include "cryptopp/rsa.h"
 #include "cryptopp/pem.h"
@@ -21,10 +22,11 @@ using namespace CryptoPP;
 using json = nlohmann::json;
 using namespace csv2;
 
-const auto SERVER_ADDRESS = "tcp://192.168.31.124:1883"s;
-const auto TOPIC = "/ble/scannedDevices/#"s;
+const string SERVER_ADDRESS("192.168.31.124");
+const string TOPIC("/ble/scannedDevices/#");
+const int SERVER_PORT = 1883;
 
-const map<string, pair<int, int>> DEVICE_POSITIONS = {
+map<string, pair<int, int>> device_positions = {
     {"ESP32-01", {0, 0}},
     {"ESP32-02", {8, 0}},
     {"ESP32-03", {4, 4}}
@@ -36,36 +38,33 @@ map<string, vector<int>> device_rssi_history = {
     {"ESP32-03", {}}
 };
 
-float get_average_rssi(const string& device_id) {
-    const auto& history = device_rssi_history[device_id];
-    return accumulate(begin(history), end(history), 0.0f) / history.size();
+float get_average_rssi(string device_id) {
+    float sum = 0;
+    for (int i : device_rssi_history[device_id]) sum += i;
+    return sum / device_rssi_history[device_id].size();
 }
 
-pair<int, int> calculate_position(const vector<json>& devices) {
+pair<int, int> calculate_position(vector<json> devices) {
+    float sum_weights = 0;
     vector<float> weights;
-    float sum_weights = 0.0f;
-
-    for (const auto& device : devices) {
-        auto& history = device_rssi_history[device["id"]];
-        history.push_back(device["rssi"]);
-        if (history.size() > 5) history.erase(begin(history));
-
-        const auto weight = 1 / pow(get_average_rssi(device["id"]), 2);
-        weights.push_back(weight);
-        sum_weights += weight;
+    for (json device : devices) {
+        device_rssi_history[device["id"]].push_back(device["rssi"]);
+        if (device_rssi_history[device["id"]].size() > 5) {
+            device_rssi_history[device["id"]].erase(device_rssi_history[device["id"]].begin());
+        }
+        weights.push_back(1 / pow(get_average_rssi(device["id"]), 2));
+        sum_weights += weights.back();
     }
 
-    auto x = 0.0f, y = 0.0f;
-    for (size_t i = 0; i < devices.size(); i++) {
-        const auto& pos = DEVICE_POSITIONS.at(devices[i]["id"]);
-        x += pos.first * weights[i] / sum_weights;
-        y += pos.second * weights[i] / sum_weights;
+    float x = 0, y = 0;
+    for (int i = 0; i < devices.size(); i++) {
+        x += device_positions[devices[i]["id"]].first * weights[i] / sum_weights;
+        y += device_positions[devices[i]["id"]].second * weights[i] / sum_weights;
     }
-
     return {x, y};
 }
 
-string encrypt_data(const RSA::PublicKey& publicKey, const string& data) {
+string encrypt_data(RSA::PublicKey publicKey, string data) {
     AutoSeededRandomPool rng;
     RSAES_OAEP_SHA_Encryptor encryptor(publicKey);
     string cipher;
@@ -73,8 +72,39 @@ string encrypt_data(const RSA::PublicKey& publicKey, const string& data) {
     return cipher;
 }
 
-int main() {
-    const auto public_key_path = "public_key.pem"s;
+class mqtt_handler : public mosqpp::mosquittopp {
+public:
+    mqtt_handler(const string& id, const string& _topic, const string& host, int port);
+    virtual void on_connect(int rc);
+    virtual void on_message(const struct mosquitto_message *message);
+    virtual void on_subcribe(int mid, int qos_count, const int *granted_qos);
+
+private:
+    string topic;
+};
+
+mqtt_handler::mqtt_handler(const string& _id, const string& _topic, const string& host, int port)
+    : mosquittopp(_id.c_str()), topic(_topic) {
+        int keepalive = 60;
+        connect(host.c_str(), port, keepalive);
+    };
+
+void mqtt_handler::on_connect(int rc) {
+    if (!rc) {
+        subscribe(nullptr, topic.c_str());
+    }
+}
+
+void mqtt_handler::on_message(const struct mosquitto_message *message) {
+    // Your message handling code here
+}
+
+void mqtt_handler::on_subscribe(int mid, int qos_count, const int *granted_qos) {
+    cout << "Subscription succeeded." << endl;
+}
+
+int main(int argc, char **argv) {
+    string public_key_path = "public_key.pem";
     RSA::PublicKey public_key;
 
     PEM_Load(public_key_path.c_str(), public_key);
@@ -82,39 +112,23 @@ int main() {
     public_key.DEREncode(fs);
     fs.MessageEnd();
 
-    mqtt::async_client cli(SERVER_ADDRESS, "");
+    mosqpp::lib_init();
 
-    const auto connOpts = mqtt::connect_options_builder().clean_session(true).finalize();
-    cli.connect(connOpts)->wait();
+    mqtt_handler test("test", TOPIC, SERVER_ADDRESS, SERVER_PORT);
 
-    cli.start_consuming();
-    cli.subscribe(TOPIC, 1)->wait();
-
-    while (true) {
-        const auto msg = cli.consume_message();
-        if (msg) {
-            const auto data = json::parse(msg->to_string());
-            const auto devices = data["ESP32C3"];
-            const auto timestamp = to_string(chrono::system_clock::to_time_t(chrono::system_clock::now()));
-
-            ofstream data_file("data.csv", ios_base::app);
-            Writer<ofstream> writer(data_file);
-            for (const auto& device : devices) {
-                writer << make_tuple(timestamp, device["id"].get<string>(), device["rssi"].get<int>());
-            }
-
-            const auto position = calculate_position(devices);
-            const auto encrypted_position = encrypt_data(public_key, timestamp + "," + to_string(position.first) + "," + to_string(position.second));
-
-            ofstream position_file("position.csv", ios_base::app);
-            Writer<ofstream> writer_position(position_file);
-            writer_position << make_tuple(timestamp, "ESP32C3", encrypted_position);
+    auto forever = [&]() {
+        int rc = 0;
+        while(rc == 0) {
+            rc = test.loop();
         }
-    }
+        return rc;
+    };
 
-    cli.unsubscribe(TOPIC)->wait();
-    cli.stop_consuming();
-    cli.disconnect()->wait();
+    thread mqtt_thread(forever);
+
+    mqtt_thread.join();
+
+    mosqpp::lib_cleanup();
+
     return 0;
 }
-
