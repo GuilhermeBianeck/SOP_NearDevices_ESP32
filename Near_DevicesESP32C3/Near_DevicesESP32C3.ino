@@ -15,7 +15,10 @@
 #define MQTT_RECONNECT_DELAY_MS 500
 #define WIFI_CONNECT_DELAY_MS 500
 #define MQTT_PUBLISH_DELAY_MS 500
-#define SCAN_INTERVAL_MS 500
+#define SCAN_INTERVAL_MS 1000
+
+const char* deviceList[] = {"ESP32-01","ESP32-02","ESP32-03"};
+const size_t deviceCount = sizeof(deviceList) / sizeof(deviceList[0]);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -41,16 +44,17 @@ void attemptMQTTConnect() {
 class AdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
 public:
   void onResult(BLEAdvertisedDevice advertisedDevice) override {
-    String deviceName = advertisedDevice.getAddress().toString().c_str();
-    if (!deviceName.isEmpty()) {
-      if (!client.connected()) {
-        attemptMQTTConnect();
+    String deviceName = advertisedDevice.getName().c_str();
+    for (size_t i = 0; i < deviceCount; i++) {
+      if (deviceName.equals(deviceList[i])) {
+        if (!client.connected()) {
+          attemptMQTTConnect();
+        }
+        JsonObject device = mainDeviceArray.createNestedObject();
+        device["id"] = deviceName;
+        device["rssi"] = advertisedDevice.getRSSI();
+        break;
       }
-      Serial.println("Found device: " + deviceName);
-      JsonObject device = mainDeviceArray.createNestedObject();
-      device["id"] = deviceName;
-      device["rssi"] = advertisedDevice.getRSSI();
-      Serial.println("Device data added to JSON document");
     }
   }
 };
@@ -65,12 +69,9 @@ void publishScannedDevicesData() {
     bool isPublished = client.publish(topic.c_str(), jsonString.c_str(), true);
     client.loop();
     if (isPublished) {
-      Serial.println("Published data: " + jsonString);
       doc.clear();
       mainDeviceArray = doc.createNestedArray(DEVICE_ID);
-    } else {
-      Serial.println("Publish failed! - Buffer Size" + String(jsonString.length()));
-    }
+    } 
     delay(MQTT_PUBLISH_DELAY_MS);
   }
 }
