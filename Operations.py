@@ -70,11 +70,8 @@ def stretch_key(public_key_pem, password):
     
     return public_key, salt
 
-def encrypt_data(public_key_pem, password, data):
-    # Stretch the key
-    public_key, salt = stretch_key(public_key_pem, password)
-
-    # Encrypt the data
+def encrypt_data(public_key_pem, data):
+    public_key = serialization.load_pem_public_key(public_key_pem)
     encrypted = public_key.encrypt(
         data.encode(),
         padding.OAEP(
@@ -83,8 +80,7 @@ def encrypt_data(public_key_pem, password, data):
             label=None
         )
     )
-
-    return base64.b64encode(encrypted).decode(), base64.b64encode(salt).decode()
+    return base64.b64encode(encrypted).decode()
 
 def on_connect(client, userdata, flags, rc):
     print(f"Connected with result code {rc}")
