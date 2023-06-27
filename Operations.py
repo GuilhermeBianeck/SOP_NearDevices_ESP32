@@ -92,7 +92,6 @@ def on_connect(client, userdata, flags, rc):
     print(f"Connected with result code {rc}")
     client.subscribe(topic)
 
-d
 def on_message(client, userdata, msg):
     print(msg.topic + " " + str(msg.payload))
     data = json.loads(msg.payload)
@@ -115,7 +114,7 @@ def on_message(client, userdata, msg):
         writer = csv.writer(file)
         print(f"Appending encrypted position to 'position.csv'")
         writer.writerow([timestamp, "ESP32C3", encrypted_position])
-        
+
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
