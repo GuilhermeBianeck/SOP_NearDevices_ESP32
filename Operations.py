@@ -2,6 +2,7 @@ import csv
 import paho.mqtt.client as mqtt
 import json
 import time
+import hashlib
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
@@ -49,6 +50,10 @@ def calculate_position(devices):
 
 def encrypt_data(public_key, data):
     print("Encrypting data...")
+    sha3_512 = hashlib.sha3_512()
+    sha3_512.update(data.encode())
+    hashed_data = sha3_512.digest()
+
     encrypted = public_key.encrypt(
         data.encode(),
         padding.OAEP(
