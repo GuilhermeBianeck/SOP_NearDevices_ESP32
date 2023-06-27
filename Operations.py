@@ -2,6 +2,7 @@ import csv
 import paho.mqtt.client as mqtt
 import json
 import time
+import hashlib
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import algorithms, modes
