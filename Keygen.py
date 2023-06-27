@@ -5,7 +5,7 @@ from cryptography.hazmat.primitives import hashes
 # Generate private key
 private_key = rsa.generate_private_key(
     public_exponent=65537,
-    key_size=2048,
+    key_size=8192,
 )
 
 # Save private key
