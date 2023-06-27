@@ -51,13 +51,13 @@ def calculate_position(devices):
     
     return (x, y)
 
-    def encrypt_data(public_key, data):
-        encrypted = public_key.encrypt(
-        data.encode(),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
+def encrypt_data(public_key, data):
+    encrypted = public_key.encrypt(
+    data.encode(),
+    padding.OAEP(
+        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+        algorithm=hashes.SHA256(),
+        label=None
         )
     )
     print("Data encrypted.")
