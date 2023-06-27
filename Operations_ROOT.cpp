@@ -7,7 +7,7 @@
 #include <mosquittopp.h>
 #include <thread>
 
-#include "json.hpp"
+#include <nlohmann/json.hpp>
 #include "cryptopp/rsa.h"
 #include "cryptopp/pem.h"
 #include "cryptopp/osrng.h"
