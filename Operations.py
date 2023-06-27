@@ -51,7 +51,7 @@ def calculate_position(devices):
     
     return (x, y)
 
-def exhaustive_hashing(data, iterations=1000):
+def exhaustive_hashing(data, iterations=100000):
     hashed_data = data.encode()
     
     for i in range(iterations):
