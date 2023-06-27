@@ -1,6 +1,7 @@
 import csv
 import paho.mqtt.client as mqtt
 import json
+import os
 import time
 import hashlib
 from cryptography.hazmat.primitives import hashes
