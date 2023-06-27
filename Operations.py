@@ -15,19 +15,42 @@ public_key_path = "public_key.pem"
 
 device_positions = {
     "ESP32-01": (0,0), 
-    "ESP32-02": (4,0), 
-    "ESP32-03": (2,2)
+    "ESP32-02": (8,0), 
+    "ESP32-03": (4,4)
 }
+
+# Function to keep track of history of RSSI values for each device
+device_rssi_history = {
+    "ESP32-01": [], 
+    "ESP32-02": [], 
+    "ESP32-03": []
+}
+
+# Function to compute the average of the RSSI history
+def get_average_rssi(device):
+    history = device_rssi_history[device['id']]
+    return sum(history) / len(history)
 
 def calculate_position(devices):
     print("Calculating position...")
-    weights = [1/(device['rssi']**2) for device in devices] # Squared RSSI to emphasize the effect
+    
+    # Store the latest RSSI values to the history
+    for device in devices:
+        device_rssi_history[device['id']].append(device['rssi'])
+        # Keep only the last 5 values
+        device_rssi_history[device['id']] = device_rssi_history[device['id']][-5:]
+        
+    # Compute the weights using the average RSSI value from the history
+    weights = [1/(get_average_rssi(device)**2) for device in devices]
     sum_weights = sum(weights)
     norm_weights = [weight/sum_weights for weight in weights]
+    
     x = sum(device_positions[device['id']][0] * weight for device, weight in zip(devices, norm_weights))
     y = sum(device_positions[device['id']][1] * weight for device, weight in zip(devices, norm_weights))
     print(f"Position calculated: {x, y}")
+    
     return (x, y)
+
 
 def encrypt_data(public_key, data):
     print("Encrypting data...")
