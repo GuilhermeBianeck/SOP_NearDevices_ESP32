@@ -9,7 +9,6 @@
 
 #include <nlohmann/json.hpp>
 #include "cryptopp/rsa.h"
-#include "cryptopp/pem.h"
 #include "cryptopp/osrng.h"
 #include "cryptopp/base64.h"
 #include "cryptopp/filters.h"
