@@ -1,48 +1,9 @@
-#include <chrono>
-#include <future>
-#include <iostream>
-#include <vector>
-#include <map>
-#include <cmath>
-#include <mosquittopp.h>
-#include <thread>
-
-#include <nlohmann/json.hpp>
-#include "cryptopp/rsa.h"
-#include "cryptopp/osrng.h"
-#include "cryptopp/base64.h"
-#include "cryptopp/filters.h"
-#include "cryptopp/files.h"
-#include "cryptopp/sha.h"
-#include "/home/csv2/single_include/csv2/csv2.hpp"
-
 
 using namespace std;
 using namespace CryptoPP;
-using json = nlohmann::json;
-using namespace csv2;
 
-const string SERVER_ADDRESS("192.168.31.124");
-const string TOPIC("/ble/scannedDevices/#");
-const int SERVER_PORT = 1883;
-
-map<string, pair<int, int>> device_positions = {
-    {"ESP32-01", {0, 0}},
-    {"ESP32-02", {8, 0}},
-    {"ESP32-03", {4, 4}}
-};
-
-map<string, vector<int>> device_rssi_history = {
-    {"ESP32-01", {}},
-    {"ESP32-02", {}},
-    {"ESP32-03", {}}
-};
-
-float get_average_rssi(string device_id) {
-    float sum = 0;
-    for (int i : device_rssi_history[device_id]) sum += i;
-    return sum / device_rssi_history[device_id].size();
-}
+map<string, vector<int>> device_rssi_history;
+map<string, pair<int, int>> device_positions;
 
 pair<int, int> calculate_position(vector<json> devices) {
     float sum_weights = 0;
@@ -105,7 +66,9 @@ void mqtt_handler::on_subscribe(int mid, int qos_count, const int *granted_qos) 
 
 void LoadPublicKey(const string& filename, RSA::PublicKey& publicKey) {
     ByteQueue bytes;
-    Load(filename.c_str(), bytes, true);
+    FileSource fs(filename.c_str(), true /*binary*/);
+    fs.TransferTo(bytes);
+    bytes.MessageEnd();
     publicKey.Load(bytes);
 }
 

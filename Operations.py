@@ -1,17 +1,18 @@
 import csv
 import paho.mqtt.client as mqtt
-import paho.mqtt.subscribe as subscribe
 import json
 import time
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
+from concurrent.futures import ThreadPoolExecutor
 import base64
 
 mqtt_server = "192.168.31.124"
 mqtt_port = 1883
 topic = "/ble/scannedDevices/#"
 public_key_path = "public_key.pem"
+max_workers = 4  # number of CPU cores to be utilized
 
 device_positions = {
     "ESP32-01": (0,0), 
@@ -19,14 +20,12 @@ device_positions = {
     "ESP32-03": (4,4)
 }
 
-# Function to keep track of history of RSSI values for each device
 device_rssi_history = {
     "ESP32-01": [], 
     "ESP32-02": [], 
     "ESP32-03": []
 }
 
-# Function to compute the average of the RSSI history
 def get_average_rssi(device):
     history = device_rssi_history[device['id']]
     return sum(history) / len(history)
@@ -34,13 +33,10 @@ def get_average_rssi(device):
 def calculate_position(devices):
     print("Calculating position...")
     
-    # Store the latest RSSI values to the history
     for device in devices:
         device_rssi_history[device['id']].append(device['rssi'])
-        # Keep only the last 5 values
         device_rssi_history[device['id']] = device_rssi_history[device['id']][-5:]
         
-    # Compute the weights using the average RSSI value from the history
     weights = [1/(get_average_rssi(device)**2) for device in devices]
     sum_weights = sum(weights)
     norm_weights = [weight/sum_weights for weight in weights]
@@ -51,19 +47,18 @@ def calculate_position(devices):
     
     return (x, y)
 
-
 def encrypt_data(public_key, data):
     print("Encrypting data...")
     encrypted = public_key.encrypt(
         data.encode(),
         padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
+            mgf=padding.MGF1(algorithm=hashes.SHA512()),
+            algorithm=hashes.SHA512(),
             label=None
         )
     )
     print("Data encrypted.")
-    return base64.b64encode(encrypted).decode()  # return as string
+    return base64.b64encode(encrypted).decode()
 
 def on_connect(client, userdata, flags, rc):
     print(f"Connected with result code {rc}")
@@ -75,16 +70,18 @@ def on_message(client, userdata, msg):
     devices = data['ESP32C3']
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 
-    # Append to CSV
     with open('data.csv', 'a', newline='') as file:
         writer = csv.writer(file)
         for device in devices:
             print(f"Appending {device['id']} to 'data.csv'")
             writer.writerow([timestamp, device['id'], device['rssi']])
 
-    # Calculate position and append to another CSV
     position = calculate_position(devices)
-    encrypted_position = encrypt_data(public_key, f"{timestamp},{position}")
+
+    # Use a thread pool for concurrent encryption
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        encrypted_position = executor.submit(encrypt_data, public_key, f"{timestamp},{position}").result()
+
     with open('position.csv', 'a', newline='') as file:
         writer = csv.writer(file)
         print(f"Appending encrypted position to 'position.csv'")
