@@ -6,6 +6,7 @@ import hashlib
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.backends import default_backend
 from concurrent.futures import ThreadPoolExecutor
@@ -50,13 +51,11 @@ def calculate_position(devices):
     
     return (x, y)
     
-def encrypt_data(public_key, data):
-    print("Encrypting data...")
+def encrypt_data(public_key_pem, data):
+    public_key = serialization.load_pem_public_key(public_key_pem)
     encrypted = public_key.encrypt(
         data.encode(),
         padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA512()),
-            algorithm=hashes.SHA512(),
             label=None
         )
     )
