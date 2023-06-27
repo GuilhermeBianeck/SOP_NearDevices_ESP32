@@ -10,7 +10,7 @@ import base64
 
 mqtt_server = "192.168.31.124"
 mqtt_port = 1883
-topic = "/ble/scannedDevices/"
+topic = "/ble/scannedDevices/#"
 public_key_path = "public_key.pem"
 
 device_positions = {
@@ -20,14 +20,17 @@ device_positions = {
 }
 
 def calculate_position(devices):
+    print("Calculating position...")
     weights = [1/(device['rssi']**2) for device in devices] # Squared RSSI to emphasize the effect
     sum_weights = sum(weights)
     norm_weights = [weight/sum_weights for weight in weights]
     x = sum(device_positions[device['id']][0] * weight for device, weight in zip(devices, norm_weights))
     y = sum(device_positions[device['id']][1] * weight for device, weight in zip(devices, norm_weights))
+    print(f"Position calculated: {x, y}")
     return (x, y)
 
 def encrypt_data(public_key, data):
+    print("Encrypting data...")
     encrypted = public_key.encrypt(
         data.encode(),
         padding.OAEP(
@@ -36,6 +39,7 @@ def encrypt_data(public_key, data):
             label=None
         )
     )
+    print("Data encrypted.")
     return base64.b64encode(encrypted).decode()  # return as string
 
 def on_connect(client, userdata, flags, rc):
@@ -52,6 +56,7 @@ def on_message(client, userdata, msg):
     with open('data.csv', 'a', newline='') as file:
         writer = csv.writer(file)
         for device in devices:
+            print(f"Appending {device['id']} to 'data.csv'")
             writer.writerow([timestamp, device['id'], device['rssi']])
 
     # Calculate position and append to another CSV
@@ -59,6 +64,7 @@ def on_message(client, userdata, msg):
     encrypted_position = encrypt_data(public_key, f"{timestamp},{position}")
     with open('position.csv', 'a', newline='') as file:
         writer = csv.writer(file)
+        print(f"Appending encrypted position to 'position.csv'")
         writer.writerow([timestamp, "ESP32C3", encrypted_position])
 
 client = mqtt.Client()
@@ -69,7 +75,9 @@ with open(public_key_path, "rb") as key_file:
     public_key = serialization.load_pem_public_key(
         key_file.read()
     )
-
+    
+print("Connecting to MQTT server...")
 client.connect(mqtt_server, mqtt_port, 60)
 
+print("Starting MQTT loop...")
 client.loop_forever()
