@@ -48,20 +48,17 @@ def calculate_position(devices):
     print(f"Position calculated: {x, y}")
     
     return (x, y)
-
+    
 def encrypt_data(public_key, data):
     print("Encrypting data...")
-    aes_key = hashlib.sha256(data.encode()).digest()[:32]  # Use SHA-256 to derive a 256-bit AES key
-    
-    # Create a cipher using AES-256 in CBC mode
-    cipher = Cipher(algorithms.AES(aes_key), modes.CBC())
-    encryptor = cipher.encryptor()
-
-    padder = padding.PKCS7(128).padder()
-    padded_data = padder.update(data.encode()) + padder.finalize()
-
-    encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
-
+    encrypted = public_key.encrypt(
+        data.encode(),
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA3_512()),
+            algorithm=hashes.SHA3_512(),
+            label=None
+        )
+    )
     print("Data encrypted.")
     return base64.b64encode(encrypted_data).decode()
 
